@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaspberryPi Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
+
+        header {
+            background: #1e293b;
+            padding: 20px 40px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        header h1 { font-size: 1.5rem; color: #38bdf8; }
+        header p  { font-size: 0.85rem; color: #94a3b8; }
+
+        .status-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        .cards {
+            display: flex;
+            gap: 16px;
+            padding: 30px 40px 10px;
+            flex-wrap: wrap;
+        }
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 20px 28px;
+            flex: 1;
+            min-width: 140px;
+        }
+        .card .label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .card .value { font-size: 2rem; font-weight: 700; margin-top: 6px; }
+        .card .unit  { font-size: 0.85rem; color: #64748b; }
+
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px 40px 40px;
+        }
+        .chart-box {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .chart-box h3 {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        canvas { max-height: 220px; }
+
+        .footer {
+            text-align: center;
+            padding: 16px;
+            color: #475569;
+            font-size: 0.8rem;
+            border-top: 1px solid #1e293b;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="status-dot" id="statusDot"></div>
+    <div>
+        <h1>IoT Sensor Dashboard</h1>
+        <p id="deviceInfo">Waiting for data...</p>
+    </div>
+</header>
+
+<div class="cards">
+    <div class="card">
+        <div class="label">Temperature</div>
+        <div class="value" id="valTemp" style="color:#f97316">--</div>
+        <div class="unit">°C</div>
+    </div>
+    <div class="card">
+        <div class="label">Humidity</div>
+        <div class="value" id="valHum" style="color:#38bdf8">--</div>
+        <div class="unit">%</div>
+    </div>
+    <div class="card">
+        <div class="label">Pressure</div>
+        <div class="value" id="valPres" style="color:#a78bfa">--</div>
+        <div class="unit">hPa</div>
+    </div>
+    <div class="card">
+        <div class="label">Clarity</div>
+        <div class="value" id="valClarity" style="color:#fbbf24">--</div>
+        <div class="unit">lux</div>
+    </div>
+</div>
+
+<div class="charts">
+    <div class="chart-box">
+        <h3>🌡 Temperature (°C)</h3>
+        <canvas id="chartTemp"></canvas>
+    </div>
+    <div class="chart-box">
+        <h3>💧 Humidity (%)</h3>
+        <canvas id="chartHum"></canvas>
+    </div>
+    <div class="chart-box">
+        <h3>🔵 Pressure (hPa)</h3>
+        <canvas id="chartPres"></canvas>
+    </div>
+    <div class="chart-box">
+        <h3>🎨 Colour (R / G / B)</h3>
+        <canvas id="chartColour"></canvas>
+    </div>
+    <div class="chart-box" style="grid-column: span 2;">
+        <h3>🧭 Orientation — Pitch / Roll / Yaw</h3>
+        <canvas id="chartOrientation"></canvas>
+    </div>
+</div>
+
+<div class="footer">
+    Last updated: <span id="lastUpdate">--</span> &nbsp;|&nbsp; Dublin, Ireland
+</div>
+
+<script>
+const COLOURS = {
+    temp:    '#f97316',
+    hum:     '#38bdf8',
+    pres:    '#a78bfa',
+    r:       '#f87171',
+    g:       '#4ade80',
+    b:       '#60a5fa',
+    pitch:   '#fb923c',
+    roll:    '#34d399',
+    yaw:     '#e879f9',
+};
+
+function makeChart(id, label, colour, multi = false) {
+    const ctx = document.getElementById(id).getContext('2d');
+    const datasets = multi
+        ? multi.map(m => ({
+            label: m.label,
+            data: [],
+            borderColor: m.colour,
+            backgroundColor: m.colour + '22',
+            borderWidth: 2,
+            pointRadius: 2,
+            tension: 0.4,
+            fill: false,
+          }))
+        : [{
+            label,
+            data: [],
+            borderColor: colour,
+            backgroundColor: colour + '33',
+            borderWidth: 2,
+            pointRadius: 2,
+            tension: 0.4,
+            fill: true,
+          }];
+
+    return new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets },
+        options: {
+            responsive: true,
+            animation: false,
+            plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+            scales: {
+                x: { ticks: { color: '#475569', maxTicksLimit: 8 }, grid: { color: '#1e293b' } },
+                y: { ticks: { color: '#475569' }, grid: { color: '#334155' } }
+            }
+        }
+    });
+}
+
+const charts = {
+    temp:        makeChart('chartTemp',        'Temperature', COLOURS.temp),
+    hum:         makeChart('chartHum',         'Humidity',    COLOURS.hum),
+    pres:        makeChart('chartPres',        'Pressure',    COLOURS.pres),
+    colour:      makeChart('chartColour',      null, null, [
+                    { label: 'Red',   colour: COLOURS.r },
+                    { label: 'Green', colour: COLOURS.g },
+                    { label: 'Blue',  colour: COLOURS.b },
+                 ]),
+    orientation: makeChart('chartOrientation', null, null, [
+                    { label: 'Pitch', colour: COLOURS.pitch },
+                    { label: 'Roll',  colour: COLOURS.roll  },
+                    { label: 'Yaw',   colour: COLOURS.yaw   },
+                 ]),
+};
+
+function updateChart(chart, labels, ...datasets) {
+    chart.data.labels = labels;
+    datasets.forEach((d, i) => chart.data.datasets[i].data = d);
+    chart.update();
+}
+
+async function fetchAndRender() {
+    try {
+        const res  = await fetch('/api/readings');
+        const data = await res.json();
+        if (!data.length) return;
+
+        const labels = data.map(d => d.timestamp.slice(11, 19));
+
+        updateChart(charts.temp,  labels, data.map(d => d.temperature));
+        updateChart(charts.hum,   labels, data.map(d => d.humidity));
+        updateChart(charts.pres,  labels, data.map(d => d.pressure));
+        updateChart(charts.colour, labels,
+            data.map(d => d.colour_r),
+            data.map(d => d.colour_g),
+            data.map(d => d.colour_b)
+        );
+        updateChart(charts.orientation, labels,
+            data.map(d => d.pitch),
+            data.map(d => d.roll),
+            data.map(d => d.yaw)
+        );
+
+        // Update cards
+        const latest = data[data.length - 1];
+        document.getElementById('valTemp').textContent    = latest.temperature;
+        document.getElementById('valHum').textContent     = latest.humidity;
+        document.getElementById('valPres').textContent    = latest.pressure;
+        document.getElementById('valClarity').textContent = latest.colour_c;
+        document.getElementById('valCount').textContent   = data.length;
+        document.getElementById('deviceInfo').textContent =
+            `${latest.device_id} · ${latest.latitude}, ${latest.longitude}`;
+        document.getElementById('lastUpdate').textContent =
+            latest.timestamp.replace('T', ' ').slice(0, 19);
+
+    } catch(e) {
+        console.error('Fetch error:', e);
+    }
+}
+
+// Refresh every 5 seconds
+fetchAndRender();
+setInterval(fetchAndRender, 5000);
+</script>
+
+</body>
+</html>
