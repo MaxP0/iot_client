@@ -5,14 +5,16 @@ from datetime import datetime
 from collections import deque
 from flask import Flask, render_template, jsonify
 import paho.mqtt.client as mqtt
+import ssl
 
 #  Config 
-MQTT_BROKER = "broker.hivemq.com"
-MQTT_PORT   = 1883
-MQTT_TOPIC  = "iot/maks/sensors"
-MAX_READINGS = 100
+MQTT_BROKER   = "80882c6eea124859ae093487116d8556.s1.eu.hivemq.cloud"
+MQTT_PORT     = 8883
+MQTT_TOPIC    = "iot/maks/sensors"
+MQTT_USERNAME = "myraspberrypi"
+MQTT_PASSWORD = "YOUR_PASSWORD_HERE"
+MAX_READINGS  = 100
 READINGS_FILE = "readings.json"
-PORT = int(os.getenv("PORT", 5000))
 
 app = Flask(__name__)
 
@@ -73,6 +75,8 @@ def api_latest():
 #  Start MQTT in background thread 
 def start_mqtt():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    client.tls_set(tls_version=ssl.PROTOCOL_TLS_CLIENT)
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
