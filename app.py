@@ -12,9 +12,10 @@ MQTT_BROKER   = "80882c6eea124859ae093487116d8556.s1.eu.hivemq.cloud"
 MQTT_PORT     = 8883
 MQTT_TOPIC    = "iot/maks/sensors"
 MQTT_USERNAME = "myraspberrypi"
-MQTT_PASSWORD = "YOUR_PASSWORD_HERE"
+MQTT_PASSWORD = "Sample1111"
 MAX_READINGS  = 100
 READINGS_FILE = "readings.json"
+PORT = int(os.getenv("PORT", 5000))
 
 app = Flask(__name__)
 
