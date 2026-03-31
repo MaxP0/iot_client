@@ -106,11 +106,7 @@
         <div class="value" id="valPres" style="color:#a78bfa">--</div>
         <div class="unit">hPa</div>
     </div>
-    <div class="card">
-        <div class="label">Clarity</div>
-        <div class="value" id="valClarity" style="color:#fbbf24">--</div>
-        <div class="unit">lux</div>
-    </div>
+
 </div>
 
 <div class="charts">
@@ -241,7 +237,6 @@ async function fetchAndRender() {
         document.getElementById('valTemp').textContent    = latest.temperature;
         document.getElementById('valHum').textContent     = latest.humidity;
         document.getElementById('valPres').textContent    = latest.pressure;
-        document.getElementById('valClarity').textContent = latest.colour_c;
         document.getElementById('valCount').textContent   = data.length;
         document.getElementById('deviceInfo').textContent =
             `${latest.device_id} · ${latest.latitude}, ${latest.longitude}`;
